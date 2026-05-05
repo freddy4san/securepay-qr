@@ -29,7 +29,9 @@
       <img class="qr-image" src="{{ qr_image }}" alt="SecurePay QR code for {{ payload.invoice_id }}">
       <h2>{{ payload.merchant_name }}</h2>
       <p>${{ "%.2f"|format(payload.amount) }} invoice {{ payload.invoice_id }}</p>
-      <p>Expires in {{ ttl }} seconds</p>
+      <p class="countdown" data-expires-at="{{ payload.expires_at }}">
+        Expires in <strong>{{ ttl }}</strong> seconds
+      </p>
     </section>
 
     <form class="panel compact" method="post" action="{{ url_for('validate') }}">
@@ -39,4 +41,27 @@
       <button type="submit">Validate QR</button>
     </form>
   {% endif %}
+
+  <script>
+    const countdown = document.querySelector("[data-expires-at]");
+
+    if (countdown) {
+      const expiresAt = Number(countdown.dataset.expiresAt) * 1000;
+      const secondsLabel = countdown.querySelector("strong");
+
+      function refreshCountdown() {
+        const secondsLeft = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+        secondsLabel.textContent = secondsLeft;
+
+        if (secondsLeft === 0) {
+          countdown.classList.add("expired");
+          countdown.textContent = "QR expired";
+          clearInterval(timer);
+        }
+      }
+
+      refreshCountdown();
+      const timer = setInterval(refreshCountdown, 1000);
+    }
+  </script>
 {% endblock %}

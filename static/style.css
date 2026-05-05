@@ -323,6 +323,20 @@ button,
   box-shadow: inset 0 0 0 2px var(--ink), 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
+.countdown {
+  margin-bottom: 0;
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
+.countdown strong {
+  font-size: 20px;
+}
+
+.countdown.expired {
+  color: var(--danger);
+}
+
 .danger-zone button {
   background: var(--danger);
 }
