@@ -1,18 +1,20 @@
 import base64
 import hashlib
 import hmac
+import io
 import json
 import secrets
 import time
 from datetime import datetime
 
 from flask import Flask, redirect, render_template, request, session, url_for
+import qrcode
 
 
 app = Flask(__name__)
-app.secret_key = "securepay-qr-demo-secret"
+SECRET_KEY = "securepay-qr-server-side-secret-key"
+app.config["SECRET_KEY"] = SECRET_KEY
 
-HMAC_SECRET = b"classroom-demo-hmac-key"
 QR_TTL_SECONDS = 120
 HIGH_VALUE_LIMIT = 1000
 
@@ -30,17 +32,17 @@ USERS = {
 }
 
 MERCHANTS = {
-    "uni-cafe": {
-        "name": "University Cafe",
+    "MER123": {
+        "name": "Campus Cafe",
         "verified": True,
         "category": "Food and drink",
     },
-    "bookshop": {
+    "BOOK123": {
         "name": "Campus Bookshop",
         "verified": True,
         "category": "Education",
     },
-    "unknown-kiosk": {
+    "BAD999": {
         "name": "Unknown Pop-up Kiosk",
         "verified": False,
         "category": "Unverified",
@@ -57,77 +59,100 @@ def current_user():
     return USERS.get(username)
 
 
-def encode_payload(payload):
-    body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    return base64.urlsafe_b64encode(body).decode().rstrip("=")
+def canonical_json(data):
+    return json.dumps(data, sort_keys=True, separators=(",", ":"))
 
 
-def decode_payload(encoded):
-    padding = "=" * (-len(encoded) % 4)
-    raw = base64.urlsafe_b64decode(encoded + padding)
-    return json.loads(raw.decode())
+def sign_payload(payload):
+    message = canonical_json(payload).encode()
+    return hmac.new(SECRET_KEY.encode(), message, hashlib.sha256).hexdigest()
 
 
-def sign_payload(encoded_payload):
-    digest = hmac.new(HMAC_SECRET, encoded_payload.encode(), hashlib.sha256).digest()
-    return base64.urlsafe_b64encode(digest).decode().rstrip("=")
+def encode_signed_qr(payload):
+    signed_qr = {
+        "payload": payload,
+        "signature": sign_payload(payload),
+    }
+    return json.dumps(signed_qr, sort_keys=True)
 
 
-def make_qr_token(merchant_id, amount, note="SecurePay QR demo"):
+def decode_signed_qr(token):
+    signed_qr = json.loads(token)
+    payload = signed_qr["payload"]
+    signature = signed_qr["signature"]
+    return payload, signature
+
+
+def make_qr_token(merchant_id, amount, invoice_id=None):
+    merchant = MERCHANTS[merchant_id]
+    issued_at = int(time.time())
     payload = {
         "amount": round(float(amount), 2),
-        "currency": "AUD",
-        "exp": int(time.time()) + QR_TTL_SECONDS,
-        "iat": int(time.time()),
+        "expires_at": issued_at + QR_TTL_SECONDS,
+        "invoice_id": invoice_id or f"INV-{secrets.token_hex(3).upper()}",
+        "issued_at": issued_at,
         "merchant_id": merchant_id,
-        "note": note,
-        "nonce": secrets.token_hex(6),
+        "merchant_name": merchant["name"],
     }
-    encoded = encode_payload(payload)
-    signature = sign_payload(encoded)
-    return f"{encoded}.{signature}"
+    return encode_signed_qr(payload)
+
+
+def make_qr_image(token):
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=8,
+        border=3,
+    )
+    qr.add_data(token)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="#17211c", back_color="white")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    encoded = base64.b64encode(buffer.getvalue()).decode()
+    return f"data:image/png;base64,{encoded}"
 
 
 def tamper_token(token):
-    encoded, signature = token.split(".", 1)
-    payload = decode_payload(encoded)
+    payload, signature = decode_signed_qr(token)
     payload["amount"] = payload["amount"] + 750
-    payload["note"] = "Tampered amount"
-    return f"{encode_payload(payload)}.{signature}"
+    return json.dumps({"payload": payload, "signature": signature}, sort_keys=True)
 
 
 def expired_token():
+    issued_at = int(time.time()) - 180
     payload = {
         "amount": 8.50,
-        "currency": "AUD",
-        "exp": int(time.time()) - 15,
-        "iat": int(time.time()) - 180,
-        "merchant_id": "uni-cafe",
-        "note": "Expired lunch QR",
-        "nonce": secrets.token_hex(6),
+        "expires_at": int(time.time()) - 15,
+        "invoice_id": f"INV-{secrets.token_hex(3).upper()}",
+        "issued_at": issued_at,
+        "merchant_id": "MER123",
+        "merchant_name": MERCHANTS["MER123"]["name"],
     }
-    encoded = encode_payload(payload)
-    return f"{encoded}.{sign_payload(encoded)}"
+    return encode_signed_qr(payload)
 
 
 def validate_token(token):
     checks = []
 
     try:
-        encoded, signature = token.strip().split(".", 1)
-        payload = decode_payload(encoded)
+        payload, signature = decode_signed_qr(token.strip())
     except Exception:
         return None, ["QR format is invalid"], False
 
-    expected_signature = sign_payload(encoded)
+    expected_signature = sign_payload(payload)
     signature_ok = hmac.compare_digest(signature, expected_signature)
     checks.append("HMAC signature valid" if signature_ok else "HMAC signature failed")
 
     merchant = MERCHANTS.get(payload.get("merchant_id"))
-    merchant_ok = bool(merchant and merchant["verified"])
+    merchant_ok = bool(
+        merchant
+        and merchant["verified"]
+        and merchant["name"] == payload.get("merchant_name")
+    )
     checks.append("Merchant is verified" if merchant_ok else "Merchant is not verified")
 
-    expiry_ok = payload.get("exp", 0) >= int(time.time())
+    expiry_ok = payload.get("expires_at", 0) >= int(time.time())
     checks.append("QR has not expired" if expiry_ok else "QR has expired")
 
     amount = float(payload.get("amount", 0))
@@ -184,22 +209,27 @@ def merchant():
     token = None
     tampered = None
     payload = None
-    merchant_id = request.form.get("merchant_id", "uni-cafe")
+    merchant_id = request.form.get("merchant_id", "MER123")
     amount = request.form.get("amount", "12.50")
+    invoice_id = request.form.get("invoice_id", "INV-1001")
+    qr_image = None
 
     if request.method == "POST":
-        token = make_qr_token(merchant_id, amount, request.form.get("note", "Class demo"))
+        token = make_qr_token(merchant_id, amount, invoice_id)
         tampered = tamper_token(token)
-        payload = decode_payload(token.split(".", 1)[0])
+        payload, _ = decode_signed_qr(token)
+        qr_image = make_qr_image(token)
 
     return render_template(
         "merchant.html",
         merchants=MERCHANTS,
         selected_merchant=merchant_id,
         amount=amount,
+        invoice_id=invoice_id,
         token=token,
         tampered=tampered,
         payload=payload,
+        qr_image=qr_image,
         ttl=QR_TTL_SECONDS,
     )
 
@@ -210,10 +240,10 @@ def scan():
     if guard:
         return guard
 
-    valid_demo = make_qr_token("uni-cafe", 12.50, "Coffee and sandwich")
+    valid_demo = make_qr_token("MER123", 12.50, "INV-CAFE-1001")
     tampered_demo = tamper_token(valid_demo)
-    high_value_demo = make_qr_token("bookshop", 1750.00, "Laptop purchase")
-    unverified_demo = make_qr_token("unknown-kiosk", 35.00, "Phone accessory")
+    high_value_demo = make_qr_token("BOOK123", 1750.00, "INV-BOOK-9001")
+    unverified_demo = make_qr_token("BAD999", 35.00, "INV-KIOSK-2001")
     expired_demo = expired_token()
 
     demos = [

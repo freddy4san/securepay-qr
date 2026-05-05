@@ -6,9 +6,10 @@
     <h1>{{ title }}</h1>
     {% if tx.payload %}
       <p>
-        ${{ "%.2f"|format(tx.payload.amount) }} {{ tx.payload.currency }}
-        at {{ tx.payload.merchant_id }}
+        ${{ "%.2f"|format(tx.payload.amount) }}
+        at {{ tx.payload.merchant_name }}
       </p>
+      <p>Invoice {{ tx.payload.invoice_id }}</p>
     {% else %}
       <p>The scanned QR could not be parsed.</p>
     {% endif %}
@@ -18,7 +19,7 @@
 
   <section class="check-list">
     {% for check in tx.checks %}
-      {% set failed = 'failed' in check or 'not verified' in check or 'expired' in check or 'Blocked' in check or 'invalid' in check %}
+      {% set failed = 'failed' in check or 'not verified' in check or check == 'QR has expired' or 'Blocked' in check or 'invalid' in check %}
       <div class="check {{ 'bad-check' if failed else 'ok-check' }}">
         {{ check }}
       </div>

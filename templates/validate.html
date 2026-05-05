@@ -8,11 +8,15 @@
   <section class="panel compact">
     <div class="payment-summary">
       <span>Amount</span>
-      <strong>${{ "%.2f"|format(payload.amount) }} {{ payload.currency }}</strong>
+      <strong>${{ "%.2f"|format(payload.amount) }}</strong>
     </div>
     <div class="payment-summary">
       <span>Merchant</span>
-      <strong>{{ payload.merchant_id }}</strong>
+      <strong>{{ payload.merchant_name }}</strong>
+    </div>
+    <div class="payment-summary">
+      <span>Invoice</span>
+      <strong>{{ payload.invoice_id }}</strong>
     </div>
   </section>
 

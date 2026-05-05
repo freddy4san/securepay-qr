@@ -18,21 +18,23 @@
     <label for="amount">Amount</label>
     <input id="amount" name="amount" type="number" min="0.01" step="0.01" value="{{ amount }}" required>
 
-    <label for="note">Description</label>
-    <input id="note" name="note" value="Class demo purchase">
+    <label for="invoice_id">Invoice ID</label>
+    <input id="invoice_id" name="invoice_id" value="{{ invoice_id }}" required>
 
     <button type="submit">Generate QR</button>
   </form>
 
   {% if token %}
     <section class="qr-card">
-      <div class="qr-visual" aria-label="Simulated QR code">
-        {% for i in range(64) %}
-          <span class="{{ 'dark' if (i * 7 + token|length) % 5 in [0, 2] else '' }}"></span>
-        {% endfor %}
-      </div>
-      <h2>{{ merchants[payload.merchant_id].name }}</h2>
-      <p>${{ "%.2f"|format(payload.amount) }} expires in {{ ttl }} seconds</p>
+      <img class="qr-image" src="{{ qr_image }}" alt="SecurePay QR code for {{ payload.invoice_id }}">
+      <h2>{{ payload.merchant_name }}</h2>
+      <p>${{ "%.2f"|format(payload.amount) }} invoice {{ payload.invoice_id }}</p>
+      <p>Expires in {{ ttl }} seconds</p>
+    </section>
+
+    <section class="panel compact">
+      <label for="signed-token">Signed QR JSON</label>
+      <textarea id="signed-token" rows="6" readonly>{{ token }}</textarea>
     </section>
 
     <form class="panel compact" method="post" action="{{ url_for('validate') }}">

@@ -6,6 +6,7 @@ SecurePay QR is a small Flask prototype for a university FinTech cybersecurity a
 
 - Customer login simulation with in-memory users
 - Merchant QR generator
+- Real QR images generated with the Python `qrcode` library
 - Customer scan page with ready-made demo QR flows
 - HMAC signature validation
 - QR expiry validation
@@ -56,6 +57,11 @@ Open `http://127.0.0.1:5000`.
 - Username: `alice`, PIN: `1234`
 - Username: `student`, PIN: `0000`
 
+## Example Merchant
+
+- Merchant ID: `MER123`
+- Merchant name: `Campus Cafe`
+
 ## Suggested Classroom Demo Flow
 
 1. Log in as `alice`.
@@ -66,7 +72,8 @@ Open `http://127.0.0.1:5000`.
 
 ## Security Concepts Demonstrated
 
-- The QR payload is JSON encoded and signed with HMAC-SHA256.
+- The QR encodes JSON containing a payment payload and an HMAC-SHA256 signature.
+- The signed payload includes `merchant_id`, `merchant_name`, `amount`, `invoice_id`, `issued_at`, and `expires_at`.
 - If the payload is changed after signing, the signature check fails.
 - Expired QRs are blocked even when their signature is valid.
 - Unverified merchants are blocked.
