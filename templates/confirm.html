@@ -10,6 +10,7 @@
     <div class="balance">${{ "%.2f"|format(tx.payload.amount) }}</div>
     <strong>{{ tx.payload.merchant_name }}</strong>
     <p>{{ tx.payload.invoice_id }}</p>
+    <p>Available balance: ${{ "%.2f"|format(user.balance) }}</p>
   </section>
 
   <form class="panel" method="post">

@@ -215,10 +215,25 @@ def validate_token(token):
     return payload, checks, True, "Low risk", None
 
 
+def user_transactions():
+    username = session.get("username")
+    items = [
+        {"id": tx_id, **tx}
+        for tx_id, tx in TRANSACTIONS.items()
+        if tx.get("username") == username
+    ]
+    return list(reversed(items))
+
+
 def require_login():
     if not current_user():
         return redirect(url_for("login"))
     return None
+
+
+@app.context_processor
+def inject_logged_in_user():
+    return {"logged_in_user": current_user()}
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -245,7 +260,24 @@ def home():
     guard = require_login()
     if guard:
         return guard
-    return render_template("home.html", user=current_user(), merchants=MERCHANTS)
+    return render_template(
+        "home.html",
+        user=current_user(),
+        merchants=MERCHANTS,
+        transaction_count=len(user_transactions()),
+    )
+
+
+@app.route("/transactions")
+def transactions():
+    guard = require_login()
+    if guard:
+        return guard
+    return render_template(
+        "transactions.html",
+        transactions=user_transactions(),
+        user=current_user(),
+    )
 
 
 @app.route("/merchant", methods=["GET", "POST"])
@@ -324,23 +356,19 @@ def validate():
     TRANSACTIONS[tx_id] = {
         "checks": checks,
         "created_at": datetime.now().strftime("%d %b %Y, %H:%M:%S"),
+        "debited": False,
         "failure_reason": failure_reason,
         "payload": payload,
         "risk_status": risk_status,
         "status": "pending_pin" if valid else "blocked",
         "token": token,
+        "username": session.get("username"),
         "valid": valid,
     }
 
     if valid:
-        return render_template(
-            "validate.html",
-            tx_id=tx_id,
-            payload=payload,
-            checks=checks,
-            risk_status=risk_status,
-            valid=True,
-        )
+        return redirect(url_for("confirm", tx_id=tx_id))
+
     return render_template(
         "result.html",
         title=failure_reason or "Payment Blocked",
@@ -360,13 +388,22 @@ def confirm(tx_id):
     tx = TRANSACTIONS.get(tx_id)
     if not tx:
         return redirect(url_for("scan"))
+    if tx.get("username") != session.get("username"):
+        return redirect(url_for("scan"))
 
     error = None
     if request.method == "POST":
         pin = request.form.get("pin", "")
         if pin == current_user()["pin"]:
+            amount = float(tx["payload"]["amount"])
+            if not tx.get("debited"):
+                current_user()["balance"] = round(current_user()["balance"] - amount, 2)
+                tx["debited"] = True
+                tx["balance_after"] = current_user()["balance"]
+
             tx["status"] = "success"
             tx["confirmed_at"] = datetime.now().strftime("%d %b %Y, %H:%M:%S")
+            tx["security_status"] = "Verified"
             return render_template(
                 "result.html",
                 title="Payment Successful",
@@ -377,11 +414,13 @@ def confirm(tx_id):
             )
 
         tx["status"] = "blocked"
-        tx["checks"].append("PIN confirmation failed")
+        tx["failure_reason"] = "Authentication Failed"
+        tx["risk_status"] = "Blocked"
+        tx["checks"].append("Authentication failed")
         error = "Incorrect PIN. Transaction blocked for safety."
         return render_template(
             "result.html",
-            title="Payment Blocked",
+            title="Authentication Failed",
             status="blocked",
             tx=tx,
             tx_id=tx_id,

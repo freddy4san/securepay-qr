@@ -16,6 +16,10 @@
       <span>Scan or run demo QR</span>
       <strong>Validate and confirm payment</strong>
     </a>
+    <a class="action-card" href="{{ url_for('transactions') }}">
+      <span>Transaction log</span>
+      <strong>{{ transaction_count }} recorded payment{{ '' if transaction_count == 1 else 's' }}</strong>
+    </a>
   </nav>
 
   <section class="panel compact">

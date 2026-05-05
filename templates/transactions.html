@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="page-title">
+    <p class="eyebrow">Transaction log</p>
+    <h1>Payment history</h1>
+  </section>
+
+  {% if transactions %}
+    <section class="history-list">
+      {% for tx in transactions %}
+        <article class="history-item {{ 'success-log' if tx.status == 'success' else 'blocked-log' }}">
+          <div class="history-head">
+            <div>
+              <h2>
+                {% if tx.payload and tx.payload.merchant_name is defined %}
+                  {{ tx.payload.merchant_name }}
+                {% else %}
+                  Unknown QR
+                {% endif %}
+              </h2>
+              <p>{{ tx.confirmed_at if tx.status == 'success' else tx.created_at }}</p>
+            </div>
+            <strong>{{ "Success" if tx.status == "success" else "Blocked" }}</strong>
+          </div>
+
+          <div class="payment-summary">
+            <span>Transaction ID</span>
+            <strong>{{ tx.id }}</strong>
+          </div>
+          {% if tx.payload and tx.payload.amount is defined %}
+            <div class="payment-summary">
+              <span>Amount</span>
+              <strong>${{ "%.2f"|format(tx.payload.amount) }}</strong>
+            </div>
+          {% endif %}
+          {% if tx.payload and tx.payload.invoice_id is defined %}
+            <div class="payment-summary">
+              <span>Invoice</span>
+              <strong>{{ tx.payload.invoice_id }}</strong>
+            </div>
+          {% endif %}
+          <div class="payment-summary">
+            <span>Security result</span>
+            <strong class="{{ 'ok' if tx.status == 'success' else 'bad' }}">
+              {{ tx.security_status if tx.status == "success" else tx.failure_reason or "Payment Blocked" }}
+            </strong>
+          </div>
+          {% if tx.balance_after is defined %}
+            <div class="payment-summary">
+              <span>Balance after</span>
+              <strong>${{ "%.2f"|format(tx.balance_after) }}</strong>
+            </div>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="panel empty-state">
+      <h2>No transactions yet</h2>
+      <p>Validated, blocked, and successful payments will appear here during the demo.</p>
+      <a class="button-link" href="{{ url_for('scan') }}">Run a QR demo</a>
+    </section>
+  {% endif %}
+
+  <a class="button-link secondary" href="{{ url_for('home') }}">Back home</a>
+{% endblock %}

@@ -15,7 +15,10 @@
             <span>SecurePay QR</span>
           </a>
           {% if session.get("username") %}
-            <a class="ghost-link" href="{{ url_for('logout') }}">Log out</a>
+            <div class="user-menu">
+              <span class="user-pill">{{ logged_in_user.name }}</span>
+              <a class="ghost-link" href="{{ url_for('logout') }}">Log out</a>
+            </div>
           {% endif %}
         </header>
 

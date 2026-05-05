@@ -32,19 +32,11 @@
       <p>Expires in {{ ttl }} seconds</p>
     </section>
 
-    <section class="panel compact">
-      <label for="signed-token">Signed QR JSON</label>
-      <textarea id="signed-token" rows="6" readonly>{{ token }}</textarea>
-    </section>
-
     <form class="panel compact" method="post" action="{{ url_for('validate') }}">
-      <input type="hidden" name="token" value="{{ token }}">
-      <button type="submit">Scan valid QR</button>
-    </form>
-
-    <form class="panel compact danger-zone" method="post" action="{{ url_for('validate') }}">
-      <input type="hidden" name="token" value="{{ tampered }}">
-      <button type="submit">Scan tampered QR</button>
+      <label for="signed-token">Editable signed QR JSON</label>
+      <textarea id="signed-token" name="token" rows="8">{{ token }}</textarea>
+      <p class="hint">Leave it unchanged for a valid QR, or edit a value to demonstrate tamper detection.</p>
+      <button type="submit">Validate QR</button>
     </form>
   {% endif %}
 {% endblock %}

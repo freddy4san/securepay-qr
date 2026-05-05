@@ -83,6 +83,27 @@ a {
   font-weight: 700;
 }
 
+.user-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.user-pill {
+  max-width: 118px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f8faf8;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hero,
 .page-title {
   margin: 10px 2px 20px;
@@ -325,6 +346,55 @@ button,
 
 .demo-item button {
   min-height: 42px;
+}
+
+.history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  padding: 14px;
+}
+
+.history-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.history-head h2 {
+  margin-bottom: 4px;
+}
+
+.history-head p {
+  margin-bottom: 0;
+  font-size: 13px;
+}
+
+.history-head > strong {
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 7px 9px;
+}
+
+.success-log .history-head > strong {
+  background: var(--ok-soft);
+  color: var(--primary-dark);
+}
+
+.blocked-log .history-head > strong {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.empty-state {
+  text-align: center;
 }
 
 .check-list {

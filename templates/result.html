@@ -2,7 +2,7 @@
 {% block content %}
   <section class="result {{ status }}">
     <div class="result-icon">{{ "✓" if status == "success" else "!" }}</div>
-    <p class="eyebrow">{{ tx.created_at }}</p>
+    <p class="eyebrow">{{ tx.confirmed_at if status == "success" else tx.created_at }}</p>
     <h1>{{ title }}</h1>
     {% if tx.payload %}
       {% if tx.payload.amount is defined and tx.payload.merchant_name is defined %}
@@ -17,10 +17,47 @@
       {% if tx.risk_status %}
         <p>Risk status: {{ tx.risk_status }}</p>
       {% endif %}
+      {% if tx.security_status %}
+        <p>Security status: {{ tx.security_status }}</p>
+      {% endif %}
     {% else %}
       <p>The scanned QR could not be parsed.</p>
     {% endif %}
   </section>
+
+  {% if status == "success" and tx.payload %}
+    <section class="panel compact receipt">
+      <h2>Receipt</h2>
+      <div class="payment-summary">
+        <span>Transaction ID</span>
+        <strong>{{ tx_id }}</strong>
+      </div>
+      <div class="payment-summary">
+        <span>Merchant</span>
+        <strong>{{ tx.payload.merchant_name }}</strong>
+      </div>
+      <div class="payment-summary">
+        <span>Amount</span>
+        <strong>${{ "%.2f"|format(tx.payload.amount) }}</strong>
+      </div>
+      <div class="payment-summary">
+        <span>Invoice ID</span>
+        <strong>{{ tx.payload.invoice_id }}</strong>
+      </div>
+      <div class="payment-summary">
+        <span>Timestamp</span>
+        <strong>{{ tx.confirmed_at }}</strong>
+      </div>
+      <div class="payment-summary">
+        <span>Security status</span>
+        <strong class="ok">{{ tx.security_status }}</strong>
+      </div>
+      <div class="payment-summary">
+        <span>Remaining balance</span>
+        <strong>${{ "%.2f"|format(tx.balance_after) }}</strong>
+      </div>
+    </section>
+  {% endif %}
 
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
