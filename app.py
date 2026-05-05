@@ -17,6 +17,14 @@ app.config["SECRET_KEY"] = SECRET_KEY
 
 QR_TTL_SECONDS = 120
 HIGH_VALUE_LIMIT = 1000
+REQUIRED_QR_FIELDS = {
+    "merchant_id",
+    "merchant_name",
+    "amount",
+    "invoice_id",
+    "issued_at",
+    "expires_at",
+}
 
 USERS = {
     "alice": {
@@ -97,6 +105,10 @@ def make_qr_token(merchant_id, amount, invoice_id=None):
     return encode_signed_qr(payload)
 
 
+def make_signed_payload(payload):
+    return encode_signed_qr(payload)
+
+
 def make_qr_image(token):
     qr = qrcode.QRCode(
         version=None,
@@ -132,39 +144,75 @@ def expired_token():
     return encode_signed_qr(payload)
 
 
+def unknown_merchant_token():
+    issued_at = int(time.time())
+    payload = {
+        "amount": 35.00,
+        "expires_at": issued_at + QR_TTL_SECONDS,
+        "invoice_id": "INV-UNKNOWN-2001",
+        "issued_at": issued_at,
+        "merchant_id": "UNKNOWN999",
+        "merchant_name": "Unknown Merchant",
+    }
+    return make_signed_payload(payload)
+
+
 def validate_token(token):
     checks = []
 
     try:
         payload, signature = decode_signed_qr(token.strip())
     except Exception:
-        return None, ["QR format is invalid"], False
+        return None, ["Invalid QR"], False, "Blocked", "Invalid QR"
+
+    if not isinstance(payload, dict):
+        return None, ["Invalid QR"], False, "Blocked", "Invalid QR"
 
     expected_signature = sign_payload(payload)
-    signature_ok = hmac.compare_digest(signature, expected_signature)
-    checks.append("HMAC signature valid" if signature_ok else "HMAC signature failed")
+    if not hmac.compare_digest(signature, expected_signature):
+        checks.append("HMAC signature failed")
+        return payload, checks, False, "Blocked", "Invalid QR"
+
+    checks.append("HMAC signature valid")
+
+    missing_fields = sorted(REQUIRED_QR_FIELDS - set(payload))
+    if missing_fields:
+        checks.append("Missing required fields: " + ", ".join(missing_fields))
+        return payload, checks, False, "Blocked", "Invalid QR"
+
+    try:
+        current_time = int(time.time())
+        expiry = int(payload["expires_at"])
+    except (TypeError, ValueError):
+        checks.append("Invalid QR expiry value")
+        return payload, checks, False, "Blocked", "Invalid QR"
+
+    if current_time > expiry:
+        checks.append("QR has expired")
+        return payload, checks, False, "Blocked", "Expired QR"
+
+    checks.append("QR has not expired")
 
     merchant = MERCHANTS.get(payload.get("merchant_id"))
-    merchant_ok = bool(
-        merchant
-        and merchant["verified"]
-        and merchant["name"] == payload.get("merchant_name")
-    )
-    checks.append("Merchant is verified" if merchant_ok else "Merchant is not verified")
+    if not merchant or not merchant["verified"] or merchant["name"] != payload["merchant_name"]:
+        checks.append("Merchant is not verified")
+        return payload, checks, False, "Blocked", "Unverified Merchant"
 
-    expiry_ok = payload.get("expires_at", 0) >= int(time.time())
-    checks.append("QR has not expired" if expiry_ok else "QR has expired")
+    checks.append("Merchant is verified")
 
-    amount = float(payload.get("amount", 0))
-    high_value_ok = amount <= HIGH_VALUE_LIMIT
-    checks.append(
-        "Amount is within fraud threshold"
-        if high_value_ok
-        else "Blocked by high-value fraud rule"
-    )
+    try:
+        amount = float(payload["amount"])
+    except (TypeError, ValueError):
+        checks.append("Invalid QR amount value")
+        return payload, checks, False, "Blocked", "Invalid QR"
 
-    valid = signature_ok and merchant_ok and expiry_ok and high_value_ok
-    return payload, checks, valid
+    if amount > HIGH_VALUE_LIMIT:
+        checks.append("Blocked by high-value fraud rule")
+        return payload, checks, False, "High risk", "Suspicious High Amount"
+
+    checks.append("Amount is within fraud threshold")
+    checks.append("Required fields are present")
+    return payload, checks, True, "Low risk", None
 
 
 def require_login():
@@ -243,20 +291,20 @@ def scan():
     valid_demo = make_qr_token("MER123", 12.50, "INV-CAFE-1001")
     tampered_demo = tamper_token(valid_demo)
     high_value_demo = make_qr_token("BOOK123", 1750.00, "INV-BOOK-9001")
-    unverified_demo = make_qr_token("BAD999", 35.00, "INV-KIOSK-2001")
+    unknown_merchant_demo = unknown_merchant_token()
     expired_demo = expired_token()
 
     demos = [
-        ("Valid QR", valid_demo, "Passes signature, expiry, merchant, and fraud checks."),
-        ("Tampered QR", tampered_demo, "Amount changed after signing, so HMAC fails."),
-        ("Expired QR", expired_demo, "Signature is real, but the QR is outside its time window."),
+        ("Use valid demo QR", valid_demo, "Passes signature, expiry, merchant, and fraud checks."),
+        ("Use tampered QR", tampered_demo, "Amount changed after signing, so HMAC fails."),
+        ("Use expired QR", expired_demo, "Signature is real, but the QR is outside its time window."),
         (
-            "Unverified merchant",
-            unverified_demo,
-            "Merchant record exists but is not approved.",
+            "Use unknown merchant QR",
+            unknown_merchant_demo,
+            "Merchant ID is not in the trusted merchant list.",
         ),
         (
-            "High-value payment",
+            "Use high-value QR",
             high_value_demo,
             f"Amount is above the ${HIGH_VALUE_LIMIT:,.0f} fraud threshold.",
         ),
@@ -271,12 +319,14 @@ def validate():
         return guard
 
     token = request.form.get("token", "")
-    payload, checks, valid = validate_token(token)
+    payload, checks, valid, risk_status, failure_reason = validate_token(token)
     tx_id = secrets.token_hex(8)
     TRANSACTIONS[tx_id] = {
         "checks": checks,
         "created_at": datetime.now().strftime("%d %b %Y, %H:%M:%S"),
+        "failure_reason": failure_reason,
         "payload": payload,
+        "risk_status": risk_status,
         "status": "pending_pin" if valid else "blocked",
         "token": token,
         "valid": valid,
@@ -284,11 +334,16 @@ def validate():
 
     if valid:
         return render_template(
-            "validate.html", tx_id=tx_id, payload=payload, checks=checks, valid=True
+            "validate.html",
+            tx_id=tx_id,
+            payload=payload,
+            checks=checks,
+            risk_status=risk_status,
+            valid=True,
         )
     return render_template(
         "result.html",
-        title="Payment Blocked",
+        title=failure_reason or "Payment Blocked",
         status="blocked",
         tx=TRANSACTIONS[tx_id],
         tx_id=tx_id,
