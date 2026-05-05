@@ -75,6 +75,33 @@ py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
+### WSL Setup Notes
+
+If you are using Windows Subsystem for Linux, open an Ubuntu/WSL terminal and run the Linux commands:
+
+```bash
+cd ~/projects
+git clone https://github.com/freddy4san/securepay-qr.git
+cd securepay-qr
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+flask --app app run
+```
+
+Then open the app from Windows or WSL at:
+
+```text
+http://127.0.0.1:5000
+```
+
+If `python3 -m venv` is missing on a fresh WSL install:
+
+```bash
+sudo apt update
+sudo apt install python3-venv python3-pip
+```
+
 ### 3. Install Dependencies
 
 ```bash
