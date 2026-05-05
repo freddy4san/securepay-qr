@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="page-title">
+    <p class="eyebrow">Customer scanner</p>
+    <h1>Scan or select a demo QR</h1>
+  </section>
+
+  <form class="panel" method="post" action="{{ url_for('validate') }}">
+    <label for="token">Paste QR token</label>
+    <textarea id="token" name="token" rows="5" placeholder="Paste signed QR payload here"></textarea>
+    <button type="submit">Validate QR</button>
+  </form>
+
+  <section class="demo-list">
+    {% for label, token, description in demos %}
+      <form class="demo-item" method="post" action="{{ url_for('validate') }}">
+        <input type="hidden" name="token" value="{{ token }}">
+        <div>
+          <h2>{{ label }}</h2>
+          <p>{{ description }}</p>
+        </div>
+        <button type="submit">Run</button>
+      </form>
+    {% endfor %}
+  </section>
+{% endblock %}

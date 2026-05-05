@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="page-title">
+    <p class="eyebrow">Final approval</p>
+    <h1>Confirm with PIN</h1>
+  </section>
+
+  <section class="account-card small">
+    <p>Paying</p>
+    <div class="balance">${{ "%.2f"|format(tx.payload.amount) }}</div>
+    <strong>{{ tx.payload.merchant_id }}</strong>
+  </section>
+
+  <form class="panel" method="post">
+    <label for="pin">Customer PIN</label>
+    <input id="pin" name="pin" inputmode="numeric" maxlength="4" placeholder="1234" required>
+    <p class="hint">Alice PIN: 1234. Student PIN: 0000.</p>
+    <button type="submit">Approve payment</button>
+  </form>
+{% endblock %}

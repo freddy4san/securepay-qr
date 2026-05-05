@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="page-title">
+    <p class="eyebrow">Validation passed</p>
+    <h1>Security checks complete</h1>
+  </section>
+
+  <section class="panel compact">
+    <div class="payment-summary">
+      <span>Amount</span>
+      <strong>${{ "%.2f"|format(payload.amount) }} {{ payload.currency }}</strong>
+    </div>
+    <div class="payment-summary">
+      <span>Merchant</span>
+      <strong>{{ payload.merchant_id }}</strong>
+    </div>
+  </section>
+
+  <section class="check-list">
+    {% for check in checks %}
+      <div class="check ok-check">{{ check }}</div>
+    {% endfor %}
+  </section>
+
+  <a class="button-link" href="{{ url_for('confirm', tx_id=tx_id) }}">Confirm with PIN</a>
+{% endblock %}

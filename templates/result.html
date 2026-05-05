@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="result {{ status }}">
+    <div class="result-icon">{{ "✓" if status == "success" else "!" }}</div>
+    <p class="eyebrow">{{ tx.created_at }}</p>
+    <h1>{{ title }}</h1>
+    {% if tx.payload %}
+      <p>
+        ${{ "%.2f"|format(tx.payload.amount) }} {{ tx.payload.currency }}
+        at {{ tx.payload.merchant_id }}
+      </p>
+    {% else %}
+      <p>The scanned QR could not be parsed.</p>
+    {% endif %}
+  </section>
+
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  <section class="check-list">
+    {% for check in tx.checks %}
+      {% set failed = 'failed' in check or 'not verified' in check or 'expired' in check or 'Blocked' in check or 'invalid' in check %}
+      <div class="check {{ 'bad-check' if failed else 'ok-check' }}">
+        {{ check }}
+      </div>
+    {% endfor %}
+  </section>
+
+  <a class="button-link secondary" href="{{ url_for('scan') }}">Try another QR</a>
+  <a class="button-link" href="{{ url_for('home') }}">Back home</a>
+{% endblock %}

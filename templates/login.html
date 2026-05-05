@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="hero">
+    <p class="eyebrow">FinTech cybersecurity demo</p>
+    <h1>Secure QR payments, checked before money moves.</h1>
+  </section>
+
+  <form class="panel" method="post">
+    <label for="username">Customer login</label>
+    <input id="username" name="username" placeholder="alice" autocomplete="off" required>
+    <p class="hint">Demo users: <strong>alice</strong> or <strong>student</strong></p>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <button type="submit">Continue</button>
+  </form>
+{% endblock %}

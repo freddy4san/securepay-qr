@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title or "SecurePay QR" }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="phone-shell">
+      <section class="phone-screen">
+        <header class="topbar">
+          <a class="brand" href="{{ url_for('home') if session.get('username') else url_for('login') }}">
+            <span class="brand-mark">SQ</span>
+            <span>SecurePay QR</span>
+          </a>
+          {% if session.get("username") %}
+            <a class="ghost-link" href="{{ url_for('logout') }}">Log out</a>
+          {% endif %}
+        </header>
+
+        {% block content %}{% endblock %}
+      </section>
+    </main>
+  </body>
+</html>

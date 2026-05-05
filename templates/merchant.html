@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="page-title">
+    <p class="eyebrow">Merchant mode</p>
+    <h1>Generate a signed QR</h1>
+  </section>
+
+  <form class="panel" method="post">
+    <label for="merchant_id">Merchant</label>
+    <select id="merchant_id" name="merchant_id">
+      {% for merchant_id, merchant in merchants.items() %}
+        <option value="{{ merchant_id }}" {% if merchant_id == selected_merchant %}selected{% endif %}>
+          {{ merchant.name }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <label for="amount">Amount</label>
+    <input id="amount" name="amount" type="number" min="0.01" step="0.01" value="{{ amount }}" required>
+
+    <label for="note">Description</label>
+    <input id="note" name="note" value="Class demo purchase">
+
+    <button type="submit">Generate QR</button>
+  </form>
+
+  {% if token %}
+    <section class="qr-card">
+      <div class="qr-visual" aria-label="Simulated QR code">
+        {% for i in range(64) %}
+          <span class="{{ 'dark' if (i * 7 + token|length) % 5 in [0, 2] else '' }}"></span>
+        {% endfor %}
+      </div>
+      <h2>{{ merchants[payload.merchant_id].name }}</h2>
+      <p>${{ "%.2f"|format(payload.amount) }} expires in {{ ttl }} seconds</p>
+    </section>
+
+    <form class="panel compact" method="post" action="{{ url_for('validate') }}">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button type="submit">Scan valid QR</button>
+    </form>
+
+    <form class="panel compact danger-zone" method="post" action="{{ url_for('validate') }}">
+      <input type="hidden" name="token" value="{{ tampered }}">
+      <button type="submit">Scan tampered QR</button>
+    </form>
+  {% endif %}
+{% endblock %}

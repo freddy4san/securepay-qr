@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="account-card">
+    <p class="eyebrow">Signed in as</p>
+    <h1>{{ user.name }}</h1>
+    <div class="balance">${{ "%.2f"|format(user.balance) }}</div>
+    <p>Available demo balance</p>
+  </section>
+
+  <nav class="action-grid">
+    <a class="action-card" href="{{ url_for('merchant') }}">
+      <span>Generate merchant QR</span>
+      <strong>Create signed payment token</strong>
+    </a>
+    <a class="action-card" href="{{ url_for('scan') }}">
+      <span>Scan or run demo QR</span>
+      <strong>Validate and confirm payment</strong>
+    </a>
+  </nav>
+
+  <section class="panel compact">
+    <h2>Verified merchants</h2>
+    {% for merchant_id, merchant in merchants.items() %}
+      <div class="row">
+        <span>{{ merchant.name }}</span>
+        <strong class="{{ 'ok' if merchant.verified else 'bad' }}">
+          {{ "Verified" if merchant.verified else "Unverified" }}
+        </strong>
+      </div>
+    {% endfor %}
+  </section>
+{% endblock %}
